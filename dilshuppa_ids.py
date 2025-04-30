@@ -11,6 +11,16 @@ last_time = time.time()
 how_long = 60  
 how_much = 10 
 
+def display_intro():
+    intro_message = '''
+    ##################################################
+    #              Dilshuppa D_IDS                   #
+    #               Author: DILSHUPPA                #
+    #    linkedIn : linkedin.com/in/dilshuppa        #
+    ##################################################
+    '''
+    print(intro_message)
+    print("Don't Misuse your Hacking skills, Hacking is an Art, So Hackers are Artists. try to respect them! \n")
 def syn_thing(pkt):
     if pkt.haslayer(scapy.TCP):
         if pkt[scapy.TCP].flags == "S":
@@ -79,23 +89,10 @@ def sniffy_sniff(howmany):
     scapy.sniff(count=int(howmany), prn=all_things, store=0)
 
 if __name__ == "__main__":
-    print("""
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ~    WELCOME TO D_IDS        ~
-    ~     auther: dilshuppa      ~
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    attacks we look for:
-     - syn boop
-     - ping boom
-     - xmas sparkle
-     - null ghost
-     - fin poke
-     - arp liar
-     - port brrrrr
-    """)
+    print("Be patient if you have passion.")
 
     if len(sys.argv) != 2:
-        print("yo, do this: python nop_ids.py <howmanypackets>")
+        print("run python3 dilshuppa_ids.py <number of packets>")
         sys.exit(1)
 
     da_num = sys.argv[1]

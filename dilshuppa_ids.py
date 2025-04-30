@@ -1,117 +1,102 @@
 import scapy.all as scapy
 import sys
-from collections import defaultdict
 import time
 
-# Dictionary to track connection attempts
-connection_attempts = defaultdict(int)
+stuff = {}
 
-# Time window to detect port scanning activity
-SCAN_TIME_WINDOW = 60  # seconds
-SCAN_THRESHOLD = 10  # number of packets within the time window
+thing_counter = {}
 
-# Timestamp for port scan detection
-last_scan_time = time.time()
+last_time = time.time()
 
-# Detect SYN scan
-def detect_syn_scan(packet):
-    if packet.haslayer(scapy.TCP) and packet[scapy.TCP].flags == "S":
-        print(f"[SYN Scan Detected] Source IP: {packet[scapy.IP].src} -> Destination IP: {packet[scapy.IP].dst}")
+how_long = 60  
+how_much = 10 
 
-# Detect Denial of Service (DoS) - Ping flood
-def detect_dos(packet):
-    if packet.haslayer(scapy.ICMP) and packet[scapy.ICMP].type == 8:  # Echo Request
-        print(f"[DoS Attack Detected] Source IP: {packet[scapy.IP].src} sending high ICMP traffic")
+def syn_thing(pkt):
+    if pkt.haslayer(scapy.TCP):
+        if pkt[scapy.TCP].flags == "S":
+            print("!!! SYN thingy from", pkt[scapy.IP].src, "to", pkt[scapy.IP].dst)
 
-# Detect Xmas scan (TCP scan with FIN, PSH, URG flags)
-def detect_xmas_scan(packet):
-    if packet.haslayer(scapy.TCP):
-        flags = packet[scapy.TCP].flags
-        if flags == "FPU":  # FIN, PSH, URG
-            print(f"[Xmas Scan Detected] Source IP: {packet[scapy.IP].src} -> Destination IP: {packet[scapy.IP].dst}")
+def ping_boom(pkt):
+    if pkt.haslayer(scapy.ICMP):
+        if pkt[scapy.ICMP].type == 8:
+            print("!!! Pingy spam from", pkt[scapy.IP].src)
 
-# Detect NULL Scan (TCP scan with no flags set)
-def detect_null_scan(packet):
-    if packet.haslayer(scapy.TCP):
-        flags = packet[scapy.TCP].flags
-        if flags == 0:  # No flags
-            print(f"[NULL Scan Detected] Source IP: {packet[scapy.IP].src} -> Destination IP: {packet[scapy.IP].dst}")
+def xmas_thing(pkt):
+    if pkt.haslayer(scapy.TCP):
+        if pkt[scapy.TCP].flags == "FPU":
+            print("!!! Xmas packet from", pkt[scapy.IP].src, "to", pkt[scapy.IP].dst)
 
-# Detect FIN Scan (TCP scan with only FIN flag set)
-def detect_fin_scan(packet):
-    if packet.haslayer(scapy.TCP):
-        if packet[scapy.TCP].flags == "F":  # FIN flag only
-            print(f"[FIN Scan Detected] Source IP: {packet[scapy.IP].src} -> Destination IP: {packet[scapy.IP].dst}")
+def null_thing(pkt):
+    if pkt.haslayer(scapy.TCP):
+        if pkt[scapy.TCP].flags == 0:
+            print("!!! NULL scan??", pkt[scapy.IP].src, "->", pkt[scapy.IP].dst)
 
-# Detect ARP Spoofing/Poisoning (ARP replies from unexpected sources)
-def detect_arp_spoofing(packet):
-    if packet.haslayer(scapy.ARP):
-        if packet[scapy.ARP].op == 2:  # ARP Reply
-            # Check if the ARP reply comes from an unexpected MAC address for a given IP
-            if packet[scapy.ARP].psrc not in connection_attempts:
-                connection_attempts[packet[scapy.ARP].psrc] = packet[scapy.ARP].hwsrc
+def fin_boop(pkt):
+    if pkt.haslayer(scapy.TCP):
+        if pkt[scapy.TCP].flags == "F":
+            print("!!! FIN boop from", pkt[scapy.IP].src)
+
+def arp_weird(pkt):
+    if pkt.haslayer(scapy.ARP):
+        if pkt[scapy.ARP].op == 2:
+            if pkt[scapy.ARP].psrc not in stuff:
+                stuff[pkt[scapy.ARP].psrc] = pkt[scapy.ARP].hwsrc
             else:
-                if connection_attempts[packet[scapy.ARP].psrc] != packet[scapy.ARP].hwsrc:
-                    print(f"[ARP Spoofing Detected] IP: {packet[scapy.ARP].psrc} is being spoofed by MAC: {packet[scapy.ARP].hwsrc}")
+                if stuff[pkt[scapy.ARP].psrc] != pkt[scapy.ARP].hwsrc:
+                    print("!!! ARP trouble! IP", pkt[scapy.ARP].psrc, "spoofed by", pkt[scapy.ARP].hwsrc)
 
-# Detect Port Scanning - Multiple connection attempts in a short time
-def detect_port_scan(packet):
-    global last_scan_time
+def port_go_brr(pkt):
+    global last_time
+    if pkt.haslayer(scapy.IP):
+        who = pkt[scapy.IP].src
+        now = time.time()
 
-    if packet.haslayer(scapy.IP):
-        ip_src = packet[scapy.IP].src
-        current_time = time.time()
+        if now - last_time > how_long:
+            thing_counter.clear()
 
-        # If time window passed, reset
-        if current_time - last_scan_time > SCAN_TIME_WINDOW:
-            connection_attempts.clear()
+        if who not in thing_counter:
+            thing_counter[who] = 1
+        else:
+            thing_counter[who] += 1
 
-        connection_attempts[ip_src] += 1
+        if thing_counter[who] > how_much:
+            print("!!! Port go BRRR from", who, "-", thing_counter[who], "times!")
+            thing_counter[who] = 0
 
-        # If a certain number of connections are made within a short time, consider it a port scan
-        if connection_attempts[ip_src] > SCAN_THRESHOLD:
-            print(f"[Port Scan Detected] Source IP: {ip_src} made {connection_attempts[ip_src]} attempts in the last {SCAN_TIME_WINDOW} seconds.")
-            connection_attempts[ip_src] = 0
+        last_time = now
 
-        last_scan_time = current_time
+def all_things(pkt):
+    syn_thing(pkt)
+    ping_boom(pkt)
+    xmas_thing(pkt)
+    null_thing(pkt)
+    fin_boop(pkt)
+    arp_weird(pkt)
+    port_go_brr(pkt)
 
-# Packet callback function to apply all detections
-def packet_callback(packet):
-    detect_syn_scan(packet)
-    detect_dos(packet)
-    detect_xmas_scan(packet)
-    detect_null_scan(packet)
-    detect_fin_scan(packet)
-    detect_arp_spoofing(packet)
-    detect_port_scan(packet)
-
-# Start sniffing for a given number of packets
-def start_sniffing(packet_count):
-    print(f"[*] Starting packet capture for {packet_count} packets...")
-    scapy.sniff(count=int(packet_count), prn=packet_callback, store=0)
+def sniffy_sniff(howmany):
+    print("sniffing", howmany, "packets...")
+    scapy.sniff(count=int(howmany), prn=all_things, store=0)
 
 if __name__ == "__main__":
-    # Author Information and Attack Detection Details
     print("""
-    ***********************************************
-    *      Dilshuppa_IDS by Dilshuppa          *
-    *                                           *
-    *      Detects the following attacks:      *
-    *                                           *
-    *  1. SYN Scan                              *
-    *  2. Denial of Service (DoS)               *
-    *  3. Xmas Scan                             *
-    *  4. NULL Scan                             *
-    *  5. FIN Scan                              *
-    *  6. ARP Spoofing/Poisoning                *
-    *  7. Port Scanning                        *
-    *                                           *
-    ***********************************************
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ~    WELCOME TO D_IDS        ~
+    ~     auther: dilshuppa      ~
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    attacks we look for:
+     - syn boop
+     - ping boom
+     - xmas sparkle
+     - null ghost
+     - fin poke
+     - arp liar
+     - port brrrrr
     """)
 
     if len(sys.argv) != 2:
-        print("Usage: dilshuppa_ids <number_of_packets>")
+        print("yo, do this: python nop_ids.py <howmanypackets>")
         sys.exit(1)
 
-    packet_count = sys.argv[1]
-    start_sniffing(packet_count)
+    da_num = sys.argv[1]
+    sniffy_sniff(da_num)
